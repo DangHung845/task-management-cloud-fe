@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TaskFlow — To Do App UI</title>
+  <style>
+    /* ===============================
+       Theme variables
+       =============================== */
+    :root {
+      --bg: #0f172a;
+      --panel: rgba(15, 23, 42, 0.78);
+      --card: rgba(255, 255, 255, 0.08);
+      --card-2: rgba(255, 255, 255, 0.12);
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --line: rgba(148, 163, 184, 0.2);
+      --primary: #7c3aed;
+      --primary-2: #8b5cf6;
+      --danger: #ef4444;
+      --success: #22c55e;
+      --warn: #f59e0b;
+      --shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
+      --radius-xl: 28px;
+      --radius-lg: 20px;
+      --radius-md: 14px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+
+    /* Page background and base typography */
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(124, 58, 237, 0.25), transparent 30%),
+        radial-gradient(circle at top right, rgba(59, 130, 246, 0.18), transparent 26%),
+        linear-gradient(180deg, #0b1120 0%, #111827 100%);
+    }    /* Center the app on the page */
+    .app {
+      min-height: 100vh;
+      padding: clamp(12px, 2vw, 28px);
+      display: grid;
+      place-items: center;
+    }
+
+    /* Two-column layout: sidebar + main content */
+    .shell {
+      width: min(1440px, 100%);
+      display: grid;
+      grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+      gap: clamp(16px, 1.8vw, 24px);
+      align-items: start;
+    }
+
+    .panel {
+      background: var(--panel);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      min-width: 0;
+    }
+
+    /* Sidebar: brand, stats, and filters */
+    .sidebar {
+      padding: clamp(18px, 2vw, 24px);
+      position: sticky;
+      top: clamp(12px, 2vw, 24px);
+      align-self: start;
+      max-height: calc(100vh - clamp(24px, 4vw, 48px));
+      overflow: auto;
+    }
+
+    /* Main content area: search, quick add, and task list */
+    .main {
+      padding: clamp(18px, 2vw, 24px);
+      min-width: 0;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin: 18px 0 22px;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+
+    .search {
+      flex: 1 1 320px;
+      min-width: 240px;
+      display: flex;
+      gap: 10px;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.5fr) minmax(160px, 1fr) minmax(160px, 1fr) auto;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    /* Responsive task cards grid */
+    .task-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      align-items: stretch;
+    }
+
+    .task {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+      min-height: 210px;
+      min-width: 0;
+    }
+
+    /* Full-screen modal overlay */
+    .modal {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(2, 6, 23, 0.72);
+      padding: 18px;
+      z-index: 20;
+      overflow: auto;
+    }
+
+    .modal-card {
+      width: min(760px, 100%);
+      background: #0f172a;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      max-height: calc(100vh - 36px);
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+    }
+
+    .modal-body {
+      display: grid;
+      gap: 12px;
+      overflow: auto;
+    }
+
+    .modal-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    /* Narrow desktop screens */
+    @media (max-width: 1180px) {
+      .shell {
+        grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
+      }
+
+      .task-list {
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      }
+    }
+
+    /* Portrait layout: stack into one column */
+    @media (max-width: 980px), (orientation: portrait) {
+      .shell {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        position: static;
+        max-height: none;
+      }
+
+      .form-grid,
+      .modal-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .task-list {
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      }
+    }
+
+    @media (max-width: 720px) {
+      .app { padding: 12px; }
+      .main, .sidebar { padding: 18px; }
+      .stats { grid-template-columns: 1fr 1fr; }
+      .search { min-width: 100%; }
+      .toolbar { gap: 10px; }
+      .task-list { grid-template-columns: 1fr; }
+      .modal-card { max-height: calc(100vh - 24px); }
+    }
+
+    /* Short landscape screens */
+    @media (orientation: landscape) and (max-height: 700px) {
+      .app {
+        padding: 12px;
+      }
+
+      .shell {
+        width: 100%;
+        grid-template-columns: minmax(260px, 300px) minmax(0, 1fr);
+      }
+
+      .sidebar {
+        max-height: calc(100vh - 24px);
+      }
+
+      .task {
+        min-height: 190px;
+      }
+    }
+
+    @media (min-width: 1440px) {
+      .shell {
+        grid-template-columns: minmax(340px, 380px) minmax(0, 1fr);
+      }
+
+      .task-list {
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      }
+
+      .main {
+        padding: 28px;
+      }
+
+      .sidebar {
+        padding: 28px;
+      }
+    }
+
+    @media (min-width: 1920px) {
+      .shell {
+        width: min(1640px, 100%);
+        grid-template-columns: minmax(360px, 420px) minmax(0, 1fr);
+      }
+
+      .task-list {
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      }
+    }
+
+    @media (max-width: 640px) {
+      .app { padding: 12px; }
+      .main, .sidebar { padding: 18px; }
+      .stats { grid-template-columns: 1fr 1fr; }
+      .search { min-width: 100%; }
+      .toolbar { gap: 10px; }
+      .task-list { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="shell">
+      <aside class="panel sidebar">
+        <div class="brand">
+          <div class="logo">TF</div>
+          <div>
+            <h1>TaskFlow</h1>
+            <p class="subtitle">The next-gen to-do app</p>
+          </div>
+        </div>
+
+        <div class="stats">
+          <div class="stat">
+            <div class="value" id="totalCount">0</div>
+            <div class="label">Total tasks</div>
+          </div>
+          <div class="stat">
+            <div class="value" id="dueSoonCount">0</div>
+            <div class="label">Due soon</div>
+          </div>
+          <div class="stat">
+            <div class="value" id="highCount">0</div>
+            <div class="label">High priority</div>
+          </div>
+          <div class="stat">
+            <div class="value" id="doneCount">0</div>
+            <div class="label">Completed</div>
+          </div>
+        </div>
+
+        <div class="section-title">
+          <h3>Filter by priority</h3>
+        </div>
+        <div class="chip-row" id="priorityChips">
+          <button class="chip active" data-priority="all">All</button>
+          <button class="chip" data-priority="high">High</button>
+          <button class="chip" data-priority="medium">Medium</button>
+          <button class="chip" data-priority="low">Low</button>
+        </div>
+
+        <div class="section-title" style="margin-top:18px;">
+          <h3>Filter by due date</h3>
+        </div>
+        <div class="chip-row" id="dateChips">
+          <button class="chip active" data-date="all">All dates</button>
+          <button class="chip" data-date="overdue">Overdue</button>
+          <button class="chip" data-date="today">Today</button>
+          <button class="chip" data-date="week">This week</button>
+        </div>
+
+        <div style="margin-top:18px; padding:16px; border-radius: var(--radius-lg); background: rgba(255,255,255,0.05); border:1px solid var(--line);">
+          <h3 style="margin-bottom:8px;">Featuring group</h3>
+          <ul style="margin:0; padding-left:20px; color: var(--muted); line-height:1.8; font-size:0.95rem;">
+            <li>23127196 - Đặng Quang Hưng</li>
+            <li>23127374 - Trần Trọng Hưng</li>
+            <li>23127463 - Nguyễn Vũ Minh Quang</li>
+          </ul>
+        </div>
+      </aside>
+
+      <main class="panel main">
+        <div class="toolbar">
+          <div class="search">
+            <input id="searchInput" type="text" placeholder="Search tasks..." />
+          </div>
+          <button class="btn" id="openModalBtn">+ Add Task</button>
+        </div>
+
+        <div class="form-grid" aria-hidden="true">
+          <input id="quickTitle" type="text" placeholder="Quick add title" />
+          <select id="quickPriority" class="priority-select">
+            <option value="low">Low priority</option>
+            <option value="medium" selected>Medium priority</option>
+            <option value="high">High priority</option>
+          </select>
+          <input id="quickDueDate" type="date" />
+          <button class="btn" id="quickAddBtn">Add</button>
+        </div>
+
+        <div class="section-title">
+          <h3>Task list</h3>
+          <p id="filterSummary" style="color: var(--muted); font-size: 0.92rem;"></p>
+        </div>
+
+        <section class="task-list" id="taskList"></section>
+      </main>
+    </div>
+  </div>
+
+  <div class="modal" id="taskModal" aria-hidden="true">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 id="modalTitle">Add Task</h2>
+        <button class="close" id="closeModalBtn" aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input id="taskTitle" type="text" placeholder="Task title" />
+        <textarea id="taskDescription" placeholder="Task description"></textarea>
+        <div class="modal-grid">
+          <select id="taskPriority" class="priority-select">
+            <option value="low">Low priority</option>
+            <option value="medium">Medium priority</option>
+            <option value="high">High priority</option>
+          </select>
+          <input id="taskDueDate" type="date" />
+          <select id="taskStatus">
+            <option value="todo">To do</option>
+            <option value="doing">Doing</option>
+            <option value="done">Done</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn ghost" id="cancelBtn">Cancel</button>
+        <button class="btn" id="saveTaskBtn">Save Task</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ===============================
+       Application state
+       =============================== */
+    // localStorage key for persisted tasks
+    const STORAGE_KEY = 'taskflow_tasks_v1';
+
+    let tasks = loadTasks();
+    let editingId = null;
+    let filters = {
+      priority: 'all',
+      date: 'all',
+      search: ''
+    };
+
+    const taskList = document.getElementById('taskList');
+    const filterSummary = document.getElementById('filterSummary');
+    const totalCount = document.getElementById('totalCount');
+    const dueSoonCount = document.getElementById('dueSoonCount');
+    const highCount = document.getElementById('highCount');
+    const doneCount = document.getElementById('doneCount');
+
+    const modal = document.getElementById('taskModal');
+    const modalTitle = document.getElementById('modalTitle');
+    const saveTaskBtn = document.getElementById('saveTaskBtn');
+
+    const titleInput = document.getElementById('taskTitle');
+    const descInput = document.getElementById('taskDescription');
+    const priorityInput = document.getElementById('taskPriority');
+    const dueDateInput = document.getElementById('taskDueDate');
+    const statusInput = document.getElementById('taskStatus');
+
+    const quickTitle = document.getElementById('quickTitle');
+    const quickPriority = document.getElementById('quickPriority');
+    const quickDueDate = document.getElementById('quickDueDate');
+    const searchInput = document.getElementById('searchInput');
+
+    document.getElementById('openModalBtn').addEventListener('click', () => openModal());
+    document.getElementById('closeModalBtn').addEventListener('click', closeModal);
+    document.getElementById('cancelBtn').addEventListener('click', closeModal);
+    document.getElementById('quickAddBtn').addEventListener('click', quickAddTask);
+    saveTaskBtn.addEventListener('click', saveTask);
+
+    searchInput.addEventListener('input', (e) => {
+      filters.search = e.target.value.trim().toLowerCase();
+      renderTasks();
+    });
+
+    document.querySelectorAll('#priorityChips .chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#priorityChips .chip').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        filters.priority = btn.dataset.priority;
+        renderTasks();
+      });
+    });
+
+    document.querySelectorAll('#dateChips .chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#dateChips .chip').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        filters.date = btn.dataset.date;
+        renderTasks();
+      });
+    });
+
+    /* Load initial data from localStorage, or fall back to sample tasks */
+    function loadTasks() {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+      return [
+        {
+          id: crypto.randomUUID(),
+          title: 'Design landing page hero',
+          description: 'Create a modern section with CTA and mobile friendly layout.',
+          priority: 'high',
+          dueDate: todayString(),
+          status: 'doing'
+        },
+        {
+          id: crypto.randomUUID(),
+          title: 'Prepare weekly report',
+          description: 'Summarize progress, blockers, and next steps.',
+          priority: 'medium',
+          dueDate: addDays(2),
+          status: 'todo'
+        },
+        {
+          id: crypto.randomUUID(),
+          title: 'Review UI feedback',
+          description: 'Check comments and refine spacing, colors, and states.',
+          priority: 'low',
+          dueDate: addDays(-1),
+          status: 'done'
+        }
+      ];
+    }
+
+    function saveToStorage() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+    }
+
+    function todayString() {
+      return new Date().toISOString().split('T')[0];
+    }
+
+    function addDays(days) {
+      const d = new Date();
+      d.setDate(d.getDate() + days);
+      return d.toISOString().split('T')[0];
+    }
+
+    /* Open the modal in add or edit mode */
+    function openModal(task = null) {
+      modal.classList.add('open');
+      modal.setAttribute('aria-hidden', 'false');
+      document.body.style.overflow = 'hidden';
+
+      if (task) {
+        editingId = task.id;
+        modalTitle.textContent = 'Edit Task';
+        titleInput.value = task.title;
+        descInput.value = task.description;
+        priorityInput.value = task.priority;
+        dueDateInput.value = task.dueDate;
+        statusInput.value = task.status;
+      } else {
+        editingId = null;
+        modalTitle.textContent = 'Add Task';
+        titleInput.value = '';
+        descInput.value = '';
+        priorityInput.value = 'medium';
+        dueDateInput.value = todayString();
+        statusInput.value = 'todo';
+      }
+      titleInput.focus();
+    }
+
+    function closeModal() {
+      modal.classList.remove('open');
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = '';
+    }
+
+    function saveTask() {
+      const title = titleInput.value.trim();
+      if (!title) {
+        alert('Please enter a task title.');
+        return;
+      }
+
+      const payload = {
+        title,
+        description: descInput.value.trim(),
+        priority: priorityInput.value,
+        dueDate: dueDateInput.value || todayString(),
+        status: statusInput.value
+      };
+
+      if (editingId) {
+        tasks = tasks.map(t => t.id === editingId ? { ...t, ...payload } : t);
+      } else {
+        tasks.unshift({ id: crypto.randomUUID(), ...payload });
+      }
+
+      saveToStorage();
+      closeModal();
+      renderTasks();
+    }
+
+    function quickAddTask() {
+      const title = quickTitle.value.trim();
+      if (!title) {
+        alert('Please enter a quick task title.');
+        return;
+      }
+      tasks.unshift({
+        id: crypto.randomUUID(),
+        title,
+        description: '',
+        priority: quickPriority.value,
+        dueDate: quickDueDate.value || todayString(),
+        status: 'todo'
+      });
+      quickTitle.value = '';
+      quickDueDate.value = '';
+      saveToStorage();
+      renderTasks();
+    }
+
+    function deleteTask(id) {
+      if (!confirm('Delete this task?')) return;
+      tasks = tasks.filter(t => t.id !== id);
+      saveToStorage();
+      renderTasks();
+    }
+
+    function toggleStatus(id) {
+      tasks = tasks.map(t => {
+        if (t.id !== id) return t;
+        const next = t.status === 'todo' ? 'doing' : t.status === 'doing' ? 'done' : 'todo';
+        return { ...t, status: next };
+      });
+      saveToStorage();
+      renderTasks();
+    }
+
+    /* Format date labels for task cards */
+    function formatDate(value) {
+      if (!value) return 'No due date';
+      return new Date(value + 'T00:00:00').toLocaleDateString(undefined, {
+        year: 'numeric', month: 'short', day: 'numeric'
+      });
+    }
+
+    function isSameDay(a, b) {
+      return a === b;
+    }
+
+    function isWithinWeek(dateStr) {
+      const now = new Date();
+      const date = new Date(dateStr + 'T00:00:00');
+      const diff = (date - new Date(now.toISOString().split('T')[0] + 'T00:00:00')) / 86400000;
+      return diff >= 0 && diff <= 7;
+    }
+
+    function priorityRank(p) {
+      return p === 'high' ? 3 : p === 'medium' ? 2 : 1;
+    }
+
+    function getFilteredTasks() {
+      const today = todayString();
+      return tasks.filter(task => {
+        const matchesSearch = !filters.search || task.title.toLowerCase().includes(filters.search) || task.description.toLowerCase().includes(filters.search);
+        const matchesPriority = filters.priority === 'all' || task.priority === filters.priority;
+
+        let matchesDate = true;
+        if (filters.date === 'overdue') matchesDate = task.dueDate && task.dueDate < today && task.status !== 'done';
+        if (filters.date === 'today') matchesDate = isSameDay(task.dueDate, today);
+        if (filters.date === 'week') matchesDate = task.dueDate ? isWithinWeek(task.dueDate) : false;
+
+        return matchesSearch && matchesPriority && matchesDate;
+      }).sort((a, b) => priorityRank(b.priority) - priorityRank(a.priority) || new Date(a.dueDate) - new Date(b.dueDate));
+    }
+
+    // Render task cards and update summary counters
+    function renderTasks() {
+      const filtered = getFilteredTasks();
+      taskList.innerHTML = '';
+
+      const today = todayString();
+
+      if (filtered.length === 0) {
+        taskList.innerHTML = `
+          <div class="empty">
+            <h3 style="margin-bottom:8px;">No tasks found</h3>
+            <p>Try changing the filters or create a new task.</p>
+          </div>
+        `;
+      } else {
+        filtered.forEach(task => {
+          const overdue = task.dueDate && task.dueDate < today && task.status !== 'done';
+          const priorityClass = task.priority === 'high' ? 'pri-high' : task.priority === 'medium' ? 'pri-med' : 'pri-low';
+          const containerClass = task.priority === 'high' ? 'top-priority' : task.priority === 'medium' ? 'medium-priority' : 'low-priority';
+
+          const el = document.createElement('article');
+          el.className = `task ${containerClass}`;
+          el.innerHTML = `
+            <div class="task-head">
+              <div>
+                <div class="task-title">${escapeHtml(task.title)}</div>
+                <div class="task-desc">${escapeHtml(task.description || 'No description added yet.')}</div>
+              </div>
+              <button class="btn ghost" onclick="window.__editTask('${task.id}')">Edit</button>
+            </div>
+            <div class="meta">
+              <span class="badge ${priorityClass}">${task.priority.toUpperCase()}</span>
+              <span class="badge ${overdue ? 'overdue' : ''}">${overdue ? 'OVERDUE' : formatDate(task.dueDate)}</span>
+              <span class="badge">${task.status.toUpperCase()}</span>
+            </div>
+            <div class="task-actions">
+              <button class="btn ghost" onclick="window.__toggleTask('${task.id}')">Cycle Status</button>
+              <button class="btn danger" onclick="window.__deleteTask('${task.id}')">Delete</button>
+            </div>
+          `;
+          taskList.appendChild(el);
+        });
+      }
+
+      totalCount.textContent = tasks.length;
+      dueSoonCount.textContent = tasks.filter(t => t.dueDate && isWithinWeek(t.dueDate) && t.status !== 'done').length;
+      highCount.textContent = tasks.filter(t => t.priority === 'high').length;
+      doneCount.textContent = tasks.filter(t => t.status === 'done').length;
+
+      const parts = [];
+      if (filters.priority !== 'all') parts.push(`Priority: ${filters.priority}`);
+      if (filters.date !== 'all') parts.push(`Date: ${filters.date}`);
+      if (filters.search) parts.push(`Search: "${filters.search}"`);
+      filterSummary.textContent = parts.length ? parts.join(' • ') : 'Showing all tasks';
+    }
+
+    // Prevent HTML injection when rendering user-entered text
+    function escapeHtml(str) {
+      return str
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    // Expose actions for inline task buttons
+    window.__editTask = (id) => {
+      const task = tasks.find(t => t.id === id);
+      if (task) openModal(task);
+    };
+    window.__deleteTask = deleteTask;
+    window.__toggleTask = toggleStatus;
+
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeModal();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeModal();
+    });
+
+    quickDueDate.value = todayString();
+    dueDateInput.value = todayString();
+    renderTasks();
+  </script>
+</body>
+</html>
