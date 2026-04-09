@@ -134,12 +134,13 @@
     }
 
     .top-card {
-      position: relative;
       display: grid;
-      grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.6fr) minmax(140px, 0.9fr) minmax(160px, 1fr) minmax(160px, 1fr);
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      grid-template-areas:
+        "title desc userId priority date"
+        ". . . . add";
       gap: 12px;
       align-items: end;
-      padding-top: 60px;
     }
 
     .top-card textarea {
@@ -149,10 +150,15 @@
       align-self: center;
     }
 
+    #quickTitle { grid-area: title; }
+    #quickDescription { grid-area: desc; }
+    #quickUserId { grid-area: userId; }
+    #quickPriority { grid-area: priority; }
+    #quickDueDate { grid-area: date; }
+
     .toolbar-btn {
-      position: absolute;
-      top: 12px;
-      right: 16px;
+      grid-area: add;
+      justify-self: end;
       min-width: 118px;
       white-space: nowrap;
     }
@@ -391,7 +397,7 @@
       gap: 6px;
     }
 
-    .priority-option {
+    .status-option {
       width: 100%;
       border: 1px solid transparent;
       background: transparent;
@@ -403,7 +409,7 @@
       font: inherit;
     }
 
-    .priority-option:hover {
+    .status-option:hover {
       background: rgba(124, 58, 237, 0.16);
       border-color: rgba(124, 58, 237, 0.25);
     }
@@ -455,11 +461,15 @@
         grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
       }
       .top-card {
-        grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.6fr) minmax(150px, 1fr) minmax(150px, 1fr);
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-areas:
+          "title desc"
+          "userId priority"
+          "date add";
       }
       .toolbar-btn {
-        grid-column: 1 / -1;
-        width: 100%;
+        justify-self: end;
+        width: min(180px, 100%);
       }
       .task-list {
         grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -471,10 +481,14 @@
       .sidebar { min-height: auto; }
 
       .top-card {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        padding-top: 16px;
+        grid-template-columns: 1fr;
+        grid-template-areas:
+          "title"
+          "desc"
+          "userId"
+          "priority"
+          "date"
+          "add";
       }
 
       .filters-row {
@@ -482,13 +496,9 @@
       }
 
       .toolbar-btn {
-        position: static;
-        top: auto;
-        right: auto;
-        order: -1;
+        justify-self: stretch;
         width: 100%;
         min-width: 0;
-        margin: 0 0 4px;
       }
 
       .task-list {
@@ -577,8 +587,8 @@
 
       <main class="panel main">
         <section class="top-card">
-          <input id="quickTitle" type="text" placeholder="Quick add title" />
-          <textarea id="quickDescription" placeholder="Quick add description"></textarea>
+          <input id="quickTitle" type="text" placeholder="Add title" />
+          <textarea id="quickDescription" placeholder="Add description"></textarea>
           <input id="quickUserId" type="text" placeholder="User ID (5 chars)" maxlength="5" minlength="5" />
           <select id="quickPriority" class="priority-select">
             <option value="low">Low priority</option>
@@ -855,8 +865,8 @@
       titleInput.focus();
     }
 
-    function changeTaskPriority(id, priority) {
-      tasks = tasks.map((t) => t.id === id ? { ...t, priority } : t);
+    function changeTaskStatus(id, status) {
+      tasks = tasks.map((t) => t.id === id ? { ...t, status } : t);
       saveToStorage();
       renderTasks();
     }
@@ -922,7 +932,7 @@
     }
 
     function closeAllPriorityMenus(except = null) {
-      document.querySelectorAll('[data-priority-dropdown].open').forEach((dd) => {
+      document.querySelectorAll('[data-status-dropdown].open').forEach((dd) => {
         if (dd !== except) dd.classList.remove('open');
       });
     }
@@ -954,21 +964,21 @@
                 <div class="task-desc">${escapeHtml(task.description || 'No description added yet.')}</div>
               </div>
               <div class="task-priority-wrap">
-                <div class="priority-dropdown" data-priority-dropdown>
-                  <button class="priority-toggle" type="button" data-action="toggle-priority" aria-label="Quick change priority">
+                <div class="priority-dropdown" data-status-dropdown>
+                  <button class="priority-toggle" type="button" data-action="toggle-status" aria-label="Quick change status">
                     <span class="priority-arrow">▼</span>
                   </button>
                   <div class="priority-menu" role="menu">
-                    <button class="priority-option" type="button" data-action="priority-option" data-value="high">High</button>
-                    <button class="priority-option" type="button" data-action="priority-option" data-value="medium">Medium</button>
-                    <button class="priority-option" type="button" data-action="priority-option" data-value="low">Low</button>
+                    <button class="status-option" type="button" data-action="status-option" data-value="todo">TODO</button>
+                    <button class="status-option" type="button" data-action="status-option" data-value="doing">DOING</button>
+                    <button class="status-option" type="button" data-action="status-option" data-value="done">DONE</button>
                   </div>
                 </div>
               </div>
             </div>
             <div class="meta">
               <span class="badge ${priorityClass}">${task.priority.toUpperCase()}</span>
-              <span class="badge user-badge">${escapeHtml(task.userId || 'N/A')}</span>
+              <span class="badge user-badge">User ID: ${escapeHtml(task.userId || 'N/A')}</span>
               <span class="badge ${overdue ? 'overdue' : ''}">${overdue ? 'OVERDUE' : formatDate(task.dueDate)}</span>
               <span class="badge created-badge">Added ${formatDate(task.createdAt || today)}</span>
               <span class="badge status-badge">${task.status.toUpperCase()}</span>
@@ -979,25 +989,25 @@
             </div>
           `;
 
-          const priorityDropdown = el.querySelector('[data-priority-dropdown]');
-          const priorityToggle = el.querySelector('[data-action="toggle-priority"]');
-          const priorityButtons = el.querySelectorAll('[data-action="priority-option"]');
+          const statusDropdown = el.querySelector('[data-status-dropdown]');
+          const statusToggle = el.querySelector('[data-action="toggle-status"]');
+          const statusButtons = el.querySelectorAll('[data-action="status-option"]');
 
-          priorityToggle.addEventListener('click', (e) => {
+          statusToggle.addEventListener('click', (e) => {
             e.stopPropagation();
-            if (priorityDropdown.classList.contains('open')) {
-              priorityDropdown.classList.remove('open');
+            if (statusDropdown.classList.contains('open')) {
+              statusDropdown.classList.remove('open');
             } else {
-              closeAllPriorityMenus(priorityDropdown);
-              priorityDropdown.classList.add('open');
+              closeAllPriorityMenus(statusDropdown);
+              statusDropdown.classList.add('open');
             }
           });
 
-          priorityButtons.forEach((btn) => {
+          statusButtons.forEach((btn) => {
             btn.addEventListener('click', (e) => {
               e.stopPropagation();
-              changeTaskPriority(task.id, btn.dataset.value);
-              priorityDropdown.classList.remove('open');
+              changeTaskStatus(task.id, btn.dataset.value);
+              statusDropdown.classList.remove('open');
             });
           });
 
