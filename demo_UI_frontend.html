@@ -134,10 +134,12 @@
     }
 
     .top-card {
+      position: relative;
       display: grid;
-      grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.6fr) minmax(160px, 1fr) minmax(160px, 1fr) auto;
+      grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.6fr) minmax(140px, 0.9fr) minmax(160px, 1fr) minmax(160px, 1fr);
       gap: 12px;
       align-items: end;
+      padding-top: 60px;
     }
 
     .top-card textarea {
@@ -148,7 +150,9 @@
     }
 
     .toolbar-btn {
-      align-self: stretch;
+      position: absolute;
+      top: 12px;
+      right: 16px;
       min-width: 118px;
       white-space: nowrap;
     }
@@ -328,6 +332,11 @@
       flex-shrink: 0;
     }
 
+    .user-id-badge {
+      background: rgba(59,130,246,0.14);
+      color: #bfdbfe;
+    }
+
     .priority-dropdown { position: relative; }
 
     .priority-toggle {
@@ -421,6 +430,7 @@
     .overdue { background: rgba(239,68,68,0.16); color: #fecaca; }
     .status-badge { background: rgba(59,130,246,0.16); color: #bfdbfe; font-weight: 800; }
     .created-badge { background: rgba(168,85,247,0.16); color: #e9d5ff; }
+    .user-badge { background: rgba(14,165,233,0.16); color: #bae6fd; font-weight: 800; }
 
     .task-footer {
       display: flex;
@@ -459,10 +469,28 @@
     @media (max-width: 980px), (orientation: portrait) {
       .shell { grid-template-columns: 1fr; }
       .sidebar { min-height: auto; }
-      .top-card,
+
+      .top-card {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding-top: 16px;
+      }
+
       .filters-row {
         grid-template-columns: 1fr;
       }
+
+      .toolbar-btn {
+        position: static;
+        top: auto;
+        right: auto;
+        order: -1;
+        width: 100%;
+        min-width: 0;
+        margin: 0 0 4px;
+      }
+
       .task-list {
         grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
       }
@@ -551,6 +579,7 @@
         <section class="top-card">
           <input id="quickTitle" type="text" placeholder="Quick add title" />
           <textarea id="quickDescription" placeholder="Quick add description"></textarea>
+          <input id="quickUserId" type="text" placeholder="User ID (5 chars)" maxlength="5" minlength="5" />
           <select id="quickPriority" class="priority-select">
             <option value="low">Low priority</option>
             <option value="medium" selected>Medium priority</option>
@@ -623,6 +652,7 @@
 
     const titleInput = document.getElementById('quickTitle');
     const descInput = document.getElementById('quickDescription');
+    const userIdInput = document.getElementById('quickUserId');
     const priorityInput = document.getElementById('quickPriority');
     const dueDateInput = document.getElementById('quickDueDate');
     const searchInput = document.getElementById('searchInput');
@@ -701,6 +731,7 @@
           id: crypto.randomUUID(),
           title: 'Design landing page',
           description: 'Create a modern section with CTA and mobile friendly layout.',
+          userId: 'AB001',
           priority: 'high',
           dueDate: todayString(),
           status: 'doing',
@@ -710,6 +741,7 @@
           id: crypto.randomUUID(),
           title: 'Prepare weekly report',
           description: 'Summarize progress, blockers, and next steps.',
+          userId: 'CD002',
           priority: 'medium',
           dueDate: addDays(2),
           status: 'todo',
@@ -719,6 +751,7 @@
           id: crypto.randomUUID(),
           title: 'Review UI feedback',
           description: 'Check comments and refine spacing, colors, and states.',
+          userId: 'EF003',
           priority: 'low',
           dueDate: addDays(-1),
           status: 'done',
@@ -735,6 +768,7 @@
       editingId = null;
       titleInput.value = '';
       descInput.value = '';
+      userIdInput.value = '';
       priorityInput.value = 'medium';
       dueDateInput.value = todayString();
       addBtn.textContent = '+ Add Task';
@@ -760,9 +794,16 @@
         return;
       }
 
+      const userId = userIdInput.value.trim().toUpperCase();
+      if (userId.length !== 5) {
+        alert('Please enter a User ID with exactly 5 characters.');
+        return;
+      }
+
       const payload = {
         title,
         description: descInput.value.trim(),
+        userId,
         priority: priorityInput.value,
         dueDate: dueDateInput.value || todayString()
       };
@@ -806,6 +847,7 @@
       editingId = id;
       titleInput.value = task.title;
       descInput.value = task.description || '';
+      userIdInput.value = task.userId || '';
       priorityInput.value = task.priority;
       dueDateInput.value = task.dueDate || todayString();
       addBtn.textContent = 'Update Task';
@@ -926,6 +968,7 @@
             </div>
             <div class="meta">
               <span class="badge ${priorityClass}">${task.priority.toUpperCase()}</span>
+              <span class="badge user-badge">${escapeHtml(task.userId || 'N/A')}</span>
               <span class="badge ${overdue ? 'overdue' : ''}">${overdue ? 'OVERDUE' : formatDate(task.dueDate)}</span>
               <span class="badge created-badge">Added ${formatDate(task.createdAt || today)}</span>
               <span class="badge status-badge">${task.status.toUpperCase()}</span>
