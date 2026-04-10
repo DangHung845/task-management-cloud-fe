@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TaskFlow - The Next Gen To Do App</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <div class="shell">
+      <aside class="panel sidebar">
+        <div class="brand">
+          <div class="logo">TF</div>
+          <div>
+            <h1>TaskFlow</h1>
+            <p class="subtitle">The next-gen to-do app</p>
+          </div>
+        </div>
+
+        <div class="stats">
+          <div class="stat">
+            <div class="value" id="totalCount">0</div>
+            <div class="label">Total tasks</div>
+          </div>
+          <div class="stat">
+            <div class="value" id="dueSoonCount">0</div>
+            <div class="label">Due soon</div>
+          </div>
+          <div class="stat">
+            <div class="value" id="highCount">0</div>
+            <div class="label">High priority</div>
+          </div>
+          <div class="stat">
+            <div class="value" id="doneCount">0</div>
+            <div class="label">Completed</div>
+          </div>
+        </div>
+
+        <div class="sidebar-note">
+          <h3>Featuring group</h3>
+          <ul>
+            <li>Đặng Quang Hưng</li>
+            <li>Trần Trọng Hưng</li>
+            <li>Nguyễn Vũ Minh Quang</li>
+          </ul>
+        </div>
+      </aside>
+
+      <main class="panel main">
+        <section class="top-card">
+          <input id="quickTitle" type="text" placeholder="Add title" />
+          <textarea id="quickDescription" placeholder="Add description"></textarea>
+          <input id="quickUserId" type="text" placeholder="User ID (5 chars)" maxlength="5" minlength="5" />
+          <select id="quickPriority" class="priority-select">
+            <option value="low">Low priority</option>
+            <option value="medium" selected>Medium priority</option>
+            <option value="high">High priority</option>
+          </select>
+          <input id="quickDueDate" type="date" />
+          <button class="btn toolbar-btn" id="quickAddTopBtn">+ Add Task</button>
+          <div class="edit-strip" id="editStrip" style="display:none;">
+            <button class="edit-link" id="cancelEditBtn" type="button">Cancel edit</button>
+          </div>
+        </section>
+
+        <section class="filter-card">
+          <div class="search-row">
+            <input id="searchInput" type="text" placeholder="Search tasks..." />
+          </div>
+          <div class="filters-row">
+            <div>
+              <div class="section-heading">
+                <h3>Priority</h3>
+              </div>
+              <div class="check-group" id="priorityChips">
+                <label class="check-chip"><input type="checkbox" value="all" checked />All</label>
+                <label class="check-chip"><input type="checkbox" value="high" />High</label>
+                <label class="check-chip"><input type="checkbox" value="medium" />Medium</label>
+                <label class="check-chip"><input type="checkbox" value="low" />Low</label>
+              </div>
+            </div>
+            <div>
+              <div class="section-heading">
+                <h3>Due date</h3>
+              </div>
+              <div class="check-group" id="dateChips">
+                <label class="check-chip"><input type="checkbox" value="all" checked />All</label>
+                <label class="check-chip"><input type="checkbox" value="overdue" />Overdue</label>
+                <label class="check-chip"><input type="checkbox" value="today" />Today</label>
+                <label class="check-chip"><input type="checkbox" value="week" />This week</label>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex; justify-content:flex-end;">
+            <button class="clear-filters" id="clearFiltersBtn" type="button">Remove all filters</button>
+          </div>
+        </section>
+
+        <section class="task-area">
+          <div class="section-heading">
+            <h3>Tasks</h3>
+            <p id="filterSummary" class="toolbar-note"></p>
+          </div>
+          <div class="task-list" id="taskList"></div>
+        </section>
+      </main>
+    </div>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>
