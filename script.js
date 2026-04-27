@@ -1,10 +1,14 @@
-import { getTasks, createTask, updateTask, deleteTask } from './api.js';
+import {
+  getTasks,
+  createTask,
+  updateTask,
+  deleteTask,
+  changeTaskStatus
+} from './api.js';
 
 let tasks = [];
 let editingId = null;
 let filters = { priority: ['all'], date: ['all'], search: '' };
-
-const STORAGE_FALLBACK_KEY = 'taskflow_tasks_backup_v1';
 
 const taskList = document.getElementById('taskList');
 const filterSummary = document.getElementById('filterSummary');
@@ -24,33 +28,20 @@ const cancelEditBtn = document.getElementById('cancelEditBtn');
 const editStrip = document.getElementById('editStrip');
 const clearFiltersBtn = document.getElementById('clearFiltersBtn');
 
-addBtn.addEventListener('click', saveFromQuickForm);
-cancelEditBtn.addEventListener('click', resetQuickForm);
-clearFiltersBtn.addEventListener('click', resetAllFilters);
-searchInput.addEventListener('input', (e) => {
-  filters.search = e.target.value.trim().toLowerCase();
-  renderTasks();
-});
+function todayString() {
+  return new Date().toISOString().split('T')[0];
+}
 
-setupCheckboxGroup('priorityChips', 'priority');
-setupCheckboxGroup('dateChips', 'date');
-
-dueDateInput.value = todayString();
-init();
-
-async function init() {
-  try {
-    tasks = await getTasks();
-    saveBackup(tasks);
-  } catch (err) {
-    console.error('Failed to load from API, using local backup if available.', err);
-    tasks = loadBackup();
-  }
-  renderTasks();
+function addDays(days) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString().split('T')[0];
 }
 
 function setupCheckboxGroup(groupId, key) {
   const group = document.getElementById(groupId);
+  if (!group) return;
+
   group.addEventListener('change', (e) => {
     const target = e.target;
     if (!(target instanceof HTMLInputElement) || target.type !== 'checkbox') return;
@@ -90,33 +81,6 @@ function setupCheckboxGroup(groupId, key) {
   });
 }
 
-function todayString() {
-  return new Date().toISOString().split('T')[0];
-}
-
-function addDays(days) {
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  return d.toISOString().split('T')[0];
-}
-
-function loadBackup() {
-  try {
-    const saved = localStorage.getItem(STORAGE_FALLBACK_KEY);
-    return saved ? JSON.parse(saved) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveBackup(list) {
-  try {
-    localStorage.setItem(STORAGE_FALLBACK_KEY, JSON.stringify(list));
-  } catch {
-    // Ignore storage failures.
-  }
-}
-
 function resetQuickForm() {
   editingId = null;
   titleInput.value = '';
@@ -125,7 +89,7 @@ function resetQuickForm() {
   priorityInput.value = 'medium';
   dueDateInput.value = todayString();
   addBtn.textContent = '+ Add Task';
-  editStrip.style.display = 'none';
+  if (editStrip) editStrip.style.display = 'none';
 }
 
 function resetAllFilters() {
@@ -133,11 +97,71 @@ function resetAllFilters() {
   searchInput.value = '';
   ['priorityChips', 'dateChips'].forEach((groupId) => {
     const group = document.getElementById(groupId);
+    if (!group) return;
     group.querySelectorAll('input[type="checkbox"]').forEach((el) => {
       el.checked = el.value === 'all';
     });
   });
   renderTasks();
+}
+
+function isSameDay(a, b) {
+  return a === b;
+}
+
+function isWithinWeek(dateStr) {
+  if (!dateStr) return false;
+  const now = new Date();
+  const date = new Date(`${dateStr}T00:00:00`);
+  const diff = (date - new Date(now.toISOString().split('T')[0] + 'T00:00:00')) / 86400000;
+  return diff >= 0 && diff <= 7;
+}
+
+function priorityRank(p) {
+  return p === 'high' ? 3 : p === 'medium' ? 2 : 1;
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+function getFilteredTasks() {
+  const today = todayString();
+  return tasks.filter((task) => {
+    const haystack = `${task.title || ''} ${task.description || ''}`.toLowerCase();
+    const matchesSearch = !filters.search || haystack.includes(filters.search);
+
+    const priorityAll = filters.priority.includes('all');
+    const dateAll = filters.date.includes('all');
+    const matchesPriority = priorityAll || filters.priority.includes(task.priority);
+
+    let matchesDate = true;
+    if (!dateAll) {
+      matchesDate = filters.date.some((item) => {
+        if (item === 'overdue') return task.dueDate && task.dueDate < today && task.status !== 'done';
+        if (item === 'today') return isSameDay(task.dueDate, today);
+        if (item === 'week') return task.dueDate ? isWithinWeek(task.dueDate) : false;
+        return false;
+      });
+    }
+
+    return matchesSearch && matchesPriority && matchesDate;
+  }).sort((a, b) => priorityRank(b.priority) - priorityRank(a.priority) || new Date(a.dueDate || 0) - new Date(b.dueDate || 0));
+}
+
+async function refreshTasks() {
+  try {
+    tasks = await getTasks();
+    renderTasks();
+  } catch (error) {
+    console.error(error);
+    alert('Không tải được dữ liệu từ server.');
+  }
 }
 
 async function saveFromQuickForm() {
@@ -159,148 +183,59 @@ async function saveFromQuickForm() {
     userId,
     priority: priorityInput.value,
     dueDate: dueDateInput.value || todayString(),
-    status: editingId ? (tasks.find((t) => t.id === editingId)?.status || 'pending') : 'pending',
-    createdAt: editingId ? (tasks.find((t) => t.id === editingId)?.createdAt || todayString()) : todayString()
+    status: 'pending'
   };
 
   try {
     if (editingId) {
-      const current = tasks.find((t) => t.id === editingId) || null;
-      await updateTask(editingId, payload, current);
+      await updateTask(editingId, payload);
     } else {
       await createTask(payload);
     }
 
-    await refreshTasks();
     resetQuickForm();
-  } catch (err) {
-    console.error(err);
-    alert('Không lưu được task. Hãy kiểm tra backend/API.');
-  }
-}
-
-async function refreshTasks() {
-  try {
-    tasks = await getTasks();
-    saveBackup(tasks);
-  } catch (err) {
-    console.error('Refresh from API failed, keeping current list.', err);
-  }
-  renderTasks();
-}
-
-async function deleteTaskById(id) {
-  if (!confirm('Delete this task?')) return;
-
-  try {
-    await deleteTask(id);
     await refreshTasks();
-  } catch (err) {
-    console.error(err);
-    alert('Không xoá được task.');
+  } catch (error) {
+    console.error(error);
+    alert('Không lưu được task.');
   }
 }
 
-async function toggleStatus(id) {
+function editTask(id) {
   const task = tasks.find((t) => t.id === id);
   if (!task) return;
-  const next = task.status === 'pending' ? 'doing' : task.status === 'doing' ? 'done' : 'pending';
-  await changeTaskStatus(id, next);
-}
 
-async function editTask(id) {
-  const task = tasks.find((t) => t.id === id);
-  if (!task) return;
   editingId = id;
-  titleInput.value = task.title;
+  titleInput.value = task.title || '';
   descInput.value = task.description || '';
   userIdInput.value = task.userId || '';
   priorityInput.value = task.priority || 'medium';
   dueDateInput.value = task.dueDate || todayString();
   addBtn.textContent = 'Update Task';
-  editStrip.style.display = 'flex';
+  if (editStrip) editStrip.style.display = 'flex';
   titleInput.focus();
 }
 
-async function changeTaskStatus(id, status) {
-  const task = tasks.find((t) => t.id === id);
-  if (!task) return;
+async function handleDeleteTask(id) {
+  if (!confirm('Delete this task?')) return;
 
   try {
-    await updateTask(id, { ...task, status }, task);
+    await deleteTask(id);
     await refreshTasks();
-  } catch (err) {
-    console.error(err);
-    alert('Không đổi được trạng thái.');
+  } catch (error) {
+    console.error(error);
+    alert('Không xoá được task.');
   }
 }
 
-function getPriorityLabel(priority) {
-  return priority.charAt(0).toUpperCase() + priority.slice(1);
-}
-
-function formatDate(value) {
-  if (!value) return 'No date';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'No date';
-  return date.toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  });
-}
-
-function isSameDay(a, b) {
-  return a === b;
-}
-
-function isWithinWeek(dateStr) {
-  const now = new Date();
-  const date = new Date(dateStr + 'T00:00:00');
-  const diff = (date - new Date(now.toISOString().split('T')[0] + 'T00:00:00')) / 86400000;
-  return diff >= 0 && diff <= 7;
-}
-
-function priorityRank(p) {
-  return p === 'high' ? 3 : p === 'medium' ? 2 : 1;
-}
-
-function getFilteredTasks() {
-  const today = todayString();
-  return tasks.filter((task) => {
-    const matchesSearch = !filters.search || task.title.toLowerCase().includes(filters.search) || (task.description || '').toLowerCase().includes(filters.search);
-
-    const priorityAll = filters.priority.includes('all');
-    const dateAll = filters.date.includes('all');
-    const matchesPriority = priorityAll || filters.priority.includes(task.priority);
-
-    let matchesDate = true;
-    if (!dateAll) {
-      matchesDate = filters.date.some((item) => {
-        if (item === 'overdue') return task.dueDate && task.dueDate < today && task.status !== 'done';
-        if (item === 'today') return isSameDay(task.dueDate, today);
-        if (item === 'week') return task.dueDate ? isWithinWeek(task.dueDate) : false;
-        return false;
-      });
-    }
-
-    return matchesSearch && matchesPriority && matchesDate;
-  }).sort((a, b) => priorityRank(b.priority) - priorityRank(a.priority) || new Date(a.dueDate) - new Date(b.dueDate));
-}
-
-function escapeHtml(str) {
-  return String(str)
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;');
-}
-
-function closeAllPriorityMenus(except = null) {
-  document.querySelectorAll('[data-status-dropdown].open').forEach((dd) => {
-    if (dd !== except) dd.classList.remove('open');
-  });
+async function handleChangeStatus(id, status) {
+  try {
+    await changeTaskStatus(id, status);
+    await refreshTasks();
+  } catch (error) {
+    console.error(error);
+    alert('Không đổi được trạng thái.');
+  }
 }
 
 function renderTasks() {
@@ -343,11 +278,11 @@ function renderTasks() {
           </div>
         </div>
         <div class="meta">
-          <span class="badge ${priorityClass}">${getPriorityLabel(task.priority).toUpperCase()}</span>
+          <span class="badge ${priorityClass}">${String(task.priority || '').toUpperCase()}</span>
           <span class="badge user-badge">User ID: ${escapeHtml(task.userId || 'N/A')}</span>
-          <span class="badge ${overdue ? 'overdue' : ''}">${overdue ? 'OVERDUE' : formatDate(task.dueDate)}</span>
-          <span class="badge created-badge">Added ${formatDate(task.createdAt || today)}</span>
-          <span class="badge status-badge">${escapeHtml((task.status || 'pending').toUpperCase())}</span>
+          <span class="badge ${overdue ? 'overdue' : ''}">${overdue ? 'OVERDUE' : (task.dueDate || 'No date')}</span>
+          <span class="badge created-badge">Added ${task.createdAt || today}</span>
+          <span class="badge status-badge">${String(task.status || 'pending').toUpperCase()}</span>
         </div>
         <div class="task-footer">
           <button class="btn ghost" data-action="edit">Edit</button>
@@ -370,23 +305,23 @@ function renderTasks() {
       });
 
       statusButtons.forEach((btn) => {
-        btn.addEventListener('click', async (e) => {
+        btn.addEventListener('click', (e) => {
           e.stopPropagation();
-          await changeTaskStatus(task.id, btn.dataset.value);
+          handleChangeStatus(task.id, btn.dataset.value);
           statusDropdown.classList.remove('open');
         });
       });
 
       el.querySelector('[data-action="edit"]').addEventListener('click', () => editTask(task.id));
-      el.querySelector('[data-action="delete"]').addEventListener('click', () => deleteTaskById(task.id));
+      el.querySelector('[data-action="delete"]').addEventListener('click', () => handleDeleteTask(task.id));
       taskList.appendChild(el);
     });
   }
 
-  totalCount.textContent = tasks.length;
-  dueSoonCount.textContent = tasks.filter((t) => t.dueDate && isWithinWeek(t.dueDate) && t.status !== 'done').length;
-  highCount.textContent = tasks.filter((t) => t.priority === 'high').length;
-  doneCount.textContent = tasks.filter((t) => t.status === 'done').length;
+  totalCount.textContent = String(tasks.length);
+  dueSoonCount.textContent = String(tasks.filter((t) => t.dueDate && isWithinWeek(t.dueDate) && t.status !== 'done').length);
+  highCount.textContent = String(tasks.filter((t) => t.priority === 'high').length);
+  doneCount.textContent = String(tasks.filter((t) => t.status === 'done').length);
 
   const parts = [];
   if (!filters.priority.includes('all')) parts.push(`Priority: ${filters.priority.join(', ')}`);
@@ -395,7 +330,37 @@ function renderTasks() {
   filterSummary.textContent = parts.length ? parts.join(' • ') : 'Showing all tasks';
 }
 
-document.addEventListener('click', () => closeAllPriorityMenus());
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') closeAllPriorityMenus();
-});
+function closeAllPriorityMenus(except = null) {
+  document.querySelectorAll('[data-status-dropdown].open').forEach((dd) => {
+    if (dd !== except) dd.classList.remove('open');
+  });
+}
+
+function initEvents() {
+  addBtn?.addEventListener('click', saveFromQuickForm);
+  cancelEditBtn?.addEventListener('click', resetQuickForm);
+  clearFiltersBtn?.addEventListener('click', resetAllFilters);
+
+  searchInput?.addEventListener('input', (e) => {
+    filters.search = e.target.value.trim().toLowerCase();
+    renderTasks();
+  });
+
+  setupCheckboxGroup('priorityChips', 'priority');
+  setupCheckboxGroup('dateChips', 'date');
+
+  document.addEventListener('click', () => closeAllPriorityMenus());
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeAllPriorityMenus();
+  });
+}
+
+async function init() {
+  if (dueDateInput) dueDateInput.value = todayString();
+  initEvents();
+
+  // If backend is empty on first load, you can replace this with [] only.
+  await refreshTasks();
+}
+
+init();
