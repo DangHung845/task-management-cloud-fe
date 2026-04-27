@@ -1,4 +1,4 @@
-const API_BASE = window.API_BASE_URL || 'http://localhost:3000/api/tasks';
+const API_BASE = 'https://sqdh3muj59.execute-api.us-east-1.amazonaws.com/prod/tasks'
 
 async function request(url, options = {}) {
   const response = await fetch(url, {
