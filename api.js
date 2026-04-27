@@ -1,4 +1,4 @@
-const API_BASE = 'https://sqdh3muj59.execute-api.us-east-1.amazonaws.com/prod/tasks'
+const API_BASE = 'https://sqdh3muj59.execute-api.us-east-1.amazonaws.com/prod/tasks';
 
 async function request(url, options = {}) {
   const response = await fetch(url, {
@@ -42,6 +42,26 @@ function toApiDate(value) {
   return Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
 }
 
+function extractItems(data) {
+  if (Array.isArray(data)) return data;
+  if (!data || typeof data !== 'object') return [];
+  if (Array.isArray(data.items)) return data.items;
+  if (Array.isArray(data.tasks)) return data.tasks;
+  if (Array.isArray(data.data)) return data.data;
+  if (Array.isArray(data.results)) return data.results;
+
+  // Object-map fallback: { "id1": {...}, "id2": {...} }
+  return Object.values(data).filter((value) => value && typeof value === 'object');
+}
+
+function unwrapSingle(data) {
+  if (!data || typeof data !== 'object') return data;
+  if (data.item && typeof data.item === 'object') return data.item;
+  if (data.task && typeof data.task === 'object') return data.task;
+  if (data.data && typeof data.data === 'object' && !Array.isArray(data.data)) return data.data;
+  return data;
+}
+
 export function normalizeTask(task) {
   return {
     id: task.taskId ?? task.id,
@@ -69,8 +89,7 @@ export function toApiTask(task, current = null) {
 
 export async function getTasks() {
   const data = await request(API_BASE);
-  if (!Array.isArray(data)) return [];
-  return data.map(normalizeTask);
+  return extractItems(data).map(normalizeTask);
 }
 
 export async function createTask(task) {
@@ -78,7 +97,8 @@ export async function createTask(task) {
     method: 'POST',
     body: JSON.stringify(toApiTask(task))
   });
-  return data && typeof data === 'object' ? normalizeTask(data) : data;
+  const item = unwrapSingle(data);
+  return item && typeof item === 'object' ? normalizeTask(item) : item;
 }
 
 export async function updateTask(id, task, current = null) {
@@ -86,11 +106,23 @@ export async function updateTask(id, task, current = null) {
     method: 'PUT',
     body: JSON.stringify(toApiTask(task, current))
   });
-  return data && typeof data === 'object' ? normalizeTask(data) : data;
+  const item = unwrapSingle(data);
+  return item && typeof item === 'object' ? normalizeTask(item) : item;
 }
 
 export async function deleteTask(id) {
   return request(`${API_BASE}/${encodeURIComponent(id)}`, {
     method: 'DELETE'
   });
+}
+
+export async function changeTaskStatus(id, status) {
+  const data = await request(`${API_BASE}/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: JSON.stringify({ status })
+  });
+
+  return data && typeof data === 'object'
+    ? normalizeTask(data.item ?? data.task ?? data)
+    : data;
 }
